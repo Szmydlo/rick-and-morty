@@ -1,0 +1,7 @@
+{
+    "cSpell.words": [
+        "Morty",
+        "rickandmortyapi"
+    ],
+    "window.title": "${activeEditorShort}${separator}${rootName} ${separator} [Branch: master]"
+}
