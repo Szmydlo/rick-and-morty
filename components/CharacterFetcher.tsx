@@ -1,9 +1,16 @@
 import React, { FormEvent, useEffect, useState } from "react";
+import {
+  fetchPerson,
+  isInCache,
+  removeFromCache,
+  sortById,
+} from "@/utils/fetchUtils";
 
+import CacheButton from "./CacheButton";
 import Image from "next/image";
-import { fetchPerson } from "@/utils/fetchUtils";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 
-interface ICharacter {
+export interface ICharacter {
   image: string;
   gender: string;
   origin: { name: string };
@@ -19,8 +26,12 @@ const CharacterFetcher = () => {
   const [characterData, setCharacterData] = useState<ICharacter | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
-  const [lastFetchedValue, setLastFetchedValue] = useState<number | null>(null);
   const [controller, setController] = useState<AbortController | null>(null);
+
+  const [characterStorage, setCharacterStorage] = useLocalStorage<ICharacter[]>(
+    "characters",
+    []
+  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -28,9 +39,36 @@ const CharacterFetcher = () => {
     return () => controller.abort();
   }, []);
 
-  const handleInputChange = (e: FormEvent<HTMLInputElement>) => {
-    setCurrentValue(+e.currentTarget.value);
+  const getFromCache = (id: number) => {
+    return characterStorage?.find((elem) => elem.id === id);
   };
+
+  const handleOnImageClick = (id: number) => {
+    setCurrentValue(id);
+    setCharacterData(getFromCache(id)!);
+  };
+
+  const handleClearCache = () => {
+    setCharacterStorage([]);
+    setCurrentValue(0);
+    setCharacterData(null);
+  };
+
+  const handleClearOneFromCache = () => {
+    const aa = removeFromCache(currentValue, characterStorage);
+    console.log("aa", aa);
+    setCharacterStorage(aa);
+    setCurrentValue(0);
+    setCharacterData(null);
+  };
+
+  const handleInputChange = (e: FormEvent<HTMLInputElement>) => {
+    if (!e.currentTarget.value) setCharacterData(null);
+    setCurrentValue(+e.currentTarget.value);
+    const dataFromCache = getFromCache(+e.currentTarget.value);
+    if (dataFromCache) setCharacterData(dataFromCache);
+  };
+
   const handleRandomFetchCharacter = () => {
     let id = -1;
     do {
@@ -40,18 +78,21 @@ const CharacterFetcher = () => {
     getData(id);
   };
   const handleFetchCharacter = () => {
+    if (isInCache(currentValue, characterStorage)) {
+      setCharacterStorage((prev) => removeFromCache(currentValue, prev));
+    }
     getData(currentValue);
   };
 
   const getData = async (id: number) => {
-    setLastFetchedValue(id);
     setLoading(true);
     setError(false);
     try {
       const data = await fetchPerson(id, controller!);
-      console.log(data);
+      console.log("fetch", characterStorage, data);
       setCharacterData(data);
       setLoading(false);
+      setCharacterStorage((prev) => sortById([...prev!, data]));
     } catch (e) {
       console.log("inside catch");
       setLoading(false);
@@ -130,10 +171,10 @@ const CharacterFetcher = () => {
         />
         <button
           onClick={handleFetchCharacter}
-          className="bg-cyan-400 text-black w-14 leading-8 rounded-md mx-2 disabled:bg-cyan-800"
-          disabled={loading || lastFetchedValue === currentValue}
+          className="bg-cyan-400 text-black w-16 leading-8 rounded-md mx-2 disabled:bg-cyan-800"
+          disabled={loading || !currentValue}
         >
-          Fetch
+          {isInCache(currentValue, characterStorage) ? "Refetch" : "Fetch"}
         </button>
         <button
           onClick={handleRandomFetchCharacter}
@@ -145,6 +186,35 @@ const CharacterFetcher = () => {
         <span className="text-[12px]">Which Rick and Morty Character?</span>
       </div>
       {dataComponent}
+      <div className="my-2" />
+      <div>
+        <button
+          className="text-cyan-400 text-[12px] block h-[16px]"
+          onClick={handleClearOneFromCache}
+        >
+          {characterData
+            ? `Remove '${characterData.name}' (#${characterData.id}) from cache?`
+            : ""}
+        </button>
+        <button
+          className="text-cyan-400 text-[12px] block h-[16px]"
+          onClick={handleClearCache}
+        >
+          Clear cache?
+        </button>
+        <div className="flex">
+          {characterStorage &&
+            characterStorage.map((character, id) => (
+              <CacheButton
+                key={id}
+                imageUrl={character.image}
+                name={character.name}
+                chosen={character.id === currentValue}
+                onImageClick={() => handleOnImageClick(character.id)}
+              ></CacheButton>
+            ))}
+        </div>
+      </div>
     </>
   );
 };
