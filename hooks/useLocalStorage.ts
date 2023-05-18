@@ -12,7 +12,7 @@ export const useLocalStorage = <T>(key: string, initialValue: T) => {
         ? setStoredValue(JSON.parse(item))
         : setStoredValue(initialValue);
     } catch (error) {
-      console.log(error);
+      console.error(error);
       setStoredValue(initialValue);
     }
   }, []);
